@@ -1,0 +1,172 @@
+\section{Дневник выполнения работы}
+
+\subsection{Подготовка}
+Поставил {\ttfamily valgrind}, {\ttfamily libdmalloc-dev} и {\ttfamily time} из репозитория Debian.
+Исходник первой лабораторной скопировал в {\ttfamily old/B.cpp}, исправленную версию вёл в
+{\ttfamily new/B.cpp}. Написал генератор тестов {\ttfamily gen.py} на Python (режимы {\ttfamily mix},
+{\ttfamily insert}, {\ttfamily sorted}, {\ttfamily saveload}) и сгенерировал 5 тестов.
+
+Первый вариант режима {\ttfamily sorted} делал слова вида {\ttfamily aa\ldots aab}, у которых длина росла
+до 1500 символов "--- это больше допустимых 256. Переделал на запись номера в 26-ричной системе из 5 букв.
+
+\subsection{Замер времени старой версии}
+\begin{alltt}
+\$ g++ -O2 -o b old/B.cpp
+\$ /usr/bin/time -f '\%es \%MKB' ./b < tests/mix_1000000.txt > /dev/null
+mix_1000000 0.89s 31948KB
+insert_1000000 1.37s 82536KB
+sorted_1000000 0.65s 81456KB
+saveload_200000 0.89s 35948KB
+\end{alltt}
+На $10^6$ вставок уходит 82 МБ, то есть около 82 байт на слово, хотя средняя длина слова около 10 букв.
+Это первая подсказка, что узел хранится расточительно.
+
+\subsection{gprof, старая версия}
+\begin{alltt}
+\$ g++ -O2 -pg -o bpg old/B.cpp
+\$ ./bpg < tests/mix_1000000.txt > /dev/null
+\$ gprof -b -p bpg gmon.out
+  \%   cumulative   self              self     total
+ time   seconds   seconds    calls  ns/call  ns/call  name
+ 25.73      0.09     0.09 11818239     7.62     7.62  balance(Node*)
+ 25.73      0.18     0.09   300389   299.74   299.74  find(Node*, string const&)
+ 20.01      0.25     0.07   499745   140.13   262.48  insert(Node*, string const&, ...)
+ 11.43      0.29     0.04  1000000    40.02    40.02  lower(string)
+ 11.43      0.33     0.04   199866   200.22   318.13  erase(Node*, string const&, bool&)
+\end{alltt}
+Сумма по профилю "--- 0.35~с, а программа работает 0.89~с. Значит, больше половины времени уходит
+в функции стандартной библиотеки, которых {\ttfamily gprof} не видит. Ещё заметно, что
+{\ttfamily balance} вызывается 11.8 млн раз "--- в том числе на обратном пути рекурсии, когда
+слово уже было в словаре и дерево не менялось.
+
+Профиль на тесте {\ttfamily saveload\_200000}:
+\begin{alltt}
+ 35.50      0.11     0.11  1981950     0.00     0.00  insert(...)
+ 25.82      0.19     0.08 32841219     0.00     0.00  balance(Node*)
+ 12.91      0.23     0.04       10     4.00    22.89  load(Node*&, string const&)
+\end{alltt}
+Один {\ttfamily Load} стоит 22.9~мс, и почти всё это время "--- {\ttfamily insert} каждого слова
+с поворотами, хотя в файле слова уже лежат в известном порядке.
+
+\subsection{callgrind, старая версия}
+Чтобы увидеть, куда делась остальная половина времени, запустил {\ttfamily callgrind}:
+\begin{alltt}
+\$ valgrind --tool=callgrind ./bg < tests/mix_100000.txt > /dev/null
+\$ callgrind_annotate --inclusive=yes callgrind.out
+489,396,563 (100.0\%)  PROGRAM TOTALS
+151,471,892 (30.95\%)  std::basic_istringstream<...>::basic_istringstream(string)
+129,243,054 (26.41\%)  std::basic_ios<...>::init(...)
+115,113,857 (23.52\%)  std::basic_ios<...>::_M_cache_locale(...)
+ 94,969,870 (19.41\%)  __dynamic_cast
+ 59,259,094 (12.11\%)  std::istream::_M_extract<unsigned long>(...)
+\end{alltt}
+Почти треть всех инструкций "--- это {\ttfamily istringstream}, который создаётся заново на каждую
+строку ввода. Конструктор потока каждый раз инициализирует локаль и делает {\ttfamily dynamic\_cast}.
+Ещё 12\% "--- разбор числа через поток. Сама работа с деревом оказалась не самой дорогой частью.
+
+\subsection{memcheck и ручные граничные тесты}
+\begin{alltt}
+\$ valgrind --leak-check=full ./bg < tests/mix_100000.txt > /dev/null
+==   total heap usage: 213,834 allocs, 213,828 frees, 8,113,110 bytes allocated
+==    definitely lost: 0 bytes in 0 blocks
+==    still reachable: 122,880 bytes in 6 blocks
+== ERROR SUMMARY: 0 errors from 0 contexts
+\end{alltt}
+Утечек нет, 6 блоков "--- внутренние буферы {\ttfamily libstdc++}. Но аллокаций 213 тыс., хотя
+вставок всего 50 тыс.: на каждую строку {\ttfamily substr} и {\ttfamily istringstream} выделяют память.
+
+Потом написал файл с некорректными командами и прогнал через старую версию:
+\begin{alltt}
++ abc                         -> OK         (номера нет, записан мусор)
++ x1y 5                       -> OK         (цифра в слове)
++ bbbb...b (300 букв) 7       -> OK         (длиннее 256)
+! Save s.bin                  -> OK
+! Load s.bin                  -> ERROR: Wrong file format
+! Foo zzz                     -> OK         (словарь очищен!)
+! Load                        -> OK         (словарь очищен!)
++ big 99999999999999999999    -> OK, потом big -> OK: 18446744073709551615
+\end{alltt}
+Получилось, что программа сама сохраняет файл, который потом не может загрузить. Подробно все
+недочёты разобраны в следующем разделе.
+
+\subsection{dmalloc, старая версия}
+\begin{alltt}
+\$ g++ -O2 -g -o bdm old/B.cpp -ldmalloccxx
+\$ eval `dmalloc -b -l dm.log -i 100 high`
+\$ ./bdm < tests/mix_100000.txt > /dev/null
+alloc calls: malloc 7, calloc 0, realloc 0, free 0
+alloc calls: new 213827, delete 213827
+ total memory allocated: 8113110 bytes (213834 pnts)
+ max in use at one time: 2542105 bytes (41245 pnts)
+\end{alltt}
+Работает в 60 раз медленнее (8.5~с против 0.14~с) из-за проверки кучи. Ошибок заборов нет,
+{\ttfamily new} и {\ttfamily delete} парные. Семь {\ttfamily malloc} без {\ttfamily free} "--- те же
+буферы {\ttfamily libstdc++} и {\ttfamily stdio}, что видел {\ttfamily memcheck}. Для {\ttfamily new}
+dmalloc не пишет файл и строку ({\ttfamily from 'unknown'}), потому что макросы из
+{\ttfamily dmalloc.h} работают только для {\ttfamily malloc}.
+
+\subsection{massif, старая версия}
+\begin{alltt}
+\$ valgrind --tool=massif ./bg < tests/saveload_200000.txt > /dev/null
+\$ ms_print massif.out
+    MB
+29.10^                    #
+     |                   @#     @          :     :     :    :     :     :    :
+     |                   @#    :@   ::    @:    ::    @:   :@    :@    @:   :@
+     |                 @@@#  :::@  :: :  :@:  ::::  ::@:  ::@   ::@  ::@:  ::@
+     |              @:@@ @# ::::@ ::: : ::@:  : :: :::@:::::@ ::::@ :::@:::::@
+     |         :::@@@:@@ @#:::::@:::: ::::@:: : ::@:::@:::::@:::::@::::@:::::@
+     | @:@@@@@@:::@@@:@@ @#:::::@:::: ::::@:: : ::@:::@:::::@:::::@::::@:::::@
+   0 +----------------------------------------------------------------------->Gi
+     0                                                                   5.870
+  n        time(i)         total(B)   useful-heap(B) extra-heap(B)
+ 24  1,800,565,251       30,515,256       25,987,062     4,528,194
+\end{alltt}
+Зубцы "--- это {\ttfamily Load}: новое дерево строится рядом со старым, и только при успехе старое
+удаляется. Так и должно быть по условию (при ошибке словарь не должен меняться), поэтому пик в два
+размера словаря неизбежен, но сам размер словаря можно уменьшить.
+
+\subsection{Исправления}
+По результатам переписал {\ttfamily new/B.cpp}:
+\begin{enumerate}
+\item Узел хранит ключ прямо в себе: {\ttfamily char key[1]} в конце структуры, память выделяется
+одним {\ttfamily malloc(offsetof(Node, key) + len)}. Длина хранится как {\ttfamily len - 1} в одном
+байте (1--256 помещается в 0--255), высота "--- в {\ttfamily signed char}.
+\item Строка разбирается вручную функциями {\ttfamily readWord}, {\ttfamily readNum},
+{\ttfamily atEnd} по индексу в той же строке, без {\ttfamily substr} и {\ttfamily istringstream}.
+Сразу проверяется формат: только буквы, длина не больше 256, число есть и не переполняет
+{\ttfamily uint64\_t}, после аргументов ничего лишнего. На неверную команду выводится
+{\ttfamily ERROR: Invalid command}.
+\item {\ttfamily insert} и {\ttfamily erase} не вызывают {\ttfamily balance} на обратном пути,
+если дерево не изменилось.
+\item {\ttfamily Save} пишет узлы в симметричном порядке (по возрастанию), формат {\ttfamily AVL2}.
+{\ttfamily Load} читает узлы в массив, проверяя, что ключи строго возрастают, и строит идеально
+сбалансированное дерево за $O(n)$ функцией {\ttfamily link} "--- без единого поворота.
+\item {\ttfamily Save} пишет во временный файл {\ttfamily path.tmp} и делает {\ttfamily rename}
+только после успешной записи.
+\end{enumerate}
+
+\subsection{Проверка исправленной версии}
+Сначала пример из условия и граничные тесты под {\ttfamily -fsanitize=address,undefined}. Потом
+стресс-тест: 5 прогонов по 30000 случайных команд, включая {\ttfamily Save}/{\ttfamily Load},
+сравнение с эталоном на {\ttfamily dict} в Python. Все совпали.
+
+Подключил {\ttfamily dmalloc.h} через {\ttfamily \#ifdef DMALLOC}, как в методичке. Так как узлы
+теперь выделяются {\ttfamily malloc}, dmalloc стал показывать строку:
+\begin{alltt}
+\$ g++ -O2 -g -DDMALLOC -DDMALLOC_FUNC_CHECK -o bdm new/B.cpp -ldmalloccxx
+top 10 allocations:
+ total-size  count in-use-size  count  source
+         54      2           0      0  B.cpp:33
+\end{alltt}
+Для проверки, что dmalloc действительно ловит утечки, собрал копию без {\ttfamily clear(root)} в
+конце {\ttfamily main}:
+\begin{alltt}
+Dumping Not-Freed Pointers Changed Since Start:
+ not freed: '0x7f94b4902f88|s1' (27 bytes) from 'leak.cpp:33'
+\end{alltt}
+27 байт = 26 байт заголовка узла + 1 буква: не освободился узел со словом {\ttfamily b}.
+
+Покрытие {\ttfamily gcov} после всех тестов "--- 92\% строк. Не покрыты только ветки ошибок записи и
+нехватки памяти, их проверил отдельно через {\ttfamily ulimit} (см. раздел сравнения).
+\pagebreak

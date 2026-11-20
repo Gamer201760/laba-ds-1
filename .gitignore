@@ -1,0 +1,5 @@
+tests/*.txt
+*.aux
+*.log
+*.out
+!logs/*.log

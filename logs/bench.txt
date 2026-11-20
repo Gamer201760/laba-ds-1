@@ -1,0 +1,6 @@
+test ./old/b_time ./old/b_mem ./new/b_time ./new/b_mem
+mix_100000.txt 0.071 6.1 0.042 4.9
+mix_1000000.txt 0.893 31.2 0.537 19.2
+insert_1000000.txt 1.357 80.6 0.769 47.4
+sorted_1000000.txt 0.642 79.6 0.320 49.1
+saveload_200000.txt 0.867 35.1 0.429 23.6

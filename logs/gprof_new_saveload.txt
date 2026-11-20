@@ -1,0 +1,16 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 33.35      0.03     0.03       10     3.00     3.00  load(Node*&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+ 22.23      0.05     0.02   200000     0.00     0.00  insert(Node*, char const*, int, unsigned long, bool&)
+ 22.23      0.07     0.02   200000     0.00     0.00  readWord(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long&, char*, int&)
+ 11.12      0.08     0.01   200031     0.00     0.00  frame_dummy
+ 11.12      0.09     0.01      170     0.06     0.06  countNodes(Node*)
+  0.00      0.09     0.00  2906620     0.00     0.00  balance(Node*)
+  0.00      0.09     0.00  1960145     0.00     0.00  newNode(char const*, int, unsigned long)
+  0.00      0.09     0.00   200040     0.00     0.00  skipSpaces(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long&)
+  0.00      0.09     0.00   200000     0.00     0.00  readNum(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long&, unsigned long&)
+  0.00      0.09     0.00      190     0.00     0.00  void std::vector<Node*, std::allocator<Node*> >::_M_realloc_insert<Node*>(__gnu_cxx::__normal_iterator<Node**, std::vector<Node*, std::allocator<Node*> > >, Node*&&)
+  0.00      0.09     0.00       10     0.00     0.00  link(std::vector<Node*, std::allocator<Node*> >&, int, int)

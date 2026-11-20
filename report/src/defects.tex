@@ -1,0 +1,48 @@
+\section{Найденные недочёты}
+
+\subsection{Ошибки}
+\begin{enumerate}
+\item {\bfseries Неверный ввод не проверялся.} {\ttfamily in >> w >> v} не проверял, что чтение
+удалось. Строка {\ttfamily + abc} добавляла слово с неопределённым номером (в моём запуске
+получилось {\ttfamily 1}). Слова с цифрами и длиннее 256 символов принимались.
+\item {\bfseries Save создавал файл, который не читается Load.} Это следствие пункта 1:
+{\ttfamily Load} проверяет буквы и длину, а {\ttfamily +} нет. Словарь с {\ttfamily x1y} сохранялся
+и потом не загружался.
+\item {\bfseries Любая команда с {\ttfamily !} кроме {\ttfamily Save} считалась {\ttfamily Load}.}
+{\ttfamily ! Foo file} и {\ttfamily ! Load} без пути открывали несуществующий файл, а это по условию
+\enquote{успешная загрузка пустого словаря} "--- в итоге словарь молча очищался.
+\item {\bfseries Переполнение номера.} {\ttfamily 99999999999999999999} не помещается в
+{\ttfamily uint64\_t}, поток выставлял максимум и ошибку, которую никто не проверял. Выводилось
+{\ttfamily OK}, а сохранялось $2^{64}-1$.
+\item {\bfseries Неудачный Save портил старый файл.} Файл открывался на запись сразу, с обрезанием.
+Если запись падала посередине (кончилось место), прежний хороший файл был уже уничтожен:
+\begin{alltt}
+\$ printf '+ keep 1\textbackslash{}n! Save big.bin\textbackslash{}n' | ./old/b    # big.bin = 26 байт
+\$ (ulimit -f 1000; ./old/b < ins100k.txt)            # 10^5 слов + Save big.bin
+ERROR: File too large
+\$ ls -l big.bin
+-rw-r--r-- 1 ... 1024000 big.bin                      # обрывок, Load его не примет
+\end{alltt}
+\item {\bfseries Возможная утечка при нехватке памяти.} В старом {\ttfamily insert} после
+{\ttfamily new Node} шло {\ttfamily nd->key = key}. Если копирование длинной строки бросало
+{\ttfamily bad\_alloc}, уже выделенный узел терялся. В новой версии узел выделяется одним
+{\ttfamily malloc} вместе с ключом.
+\end{enumerate}
+
+\subsection{Недочёты производительности}
+\begin{enumerate}
+\item {\bfseries {\ttfamily istringstream} на каждую строку} "--- около 40\% всех инструкций
+программы по {\ttfamily callgrind} (конструктор потока, локаль, разбор числа).
+\item {\bfseries Лишняя память в узле.} {\ttfamily sizeof(Node)} был 64 байта: {\ttfamily std::string}
+сам по себе 32 байта, {\ttfamily int h}, выравнивание. Слова длиннее 15 символов ещё и выделялись
+отдельно в куче (вторая аллокация на узел). В итоге около 80 байт на слово при средней длине 10.
+\item {\bfseries {\ttfamily Load} за $O(n \log n)$ с поворотами}, хотя можно за $O(n)$: если писать
+слова по возрастанию, дерево собирается из отсортированного массива сразу сбалансированным.
+\item {\bfseries Лишние вызовы {\ttfamily balance}} на обратном пути рекурсии, когда слово уже было
+({\ttfamily Exist}) или не найдено ({\ttfamily NoSuchWord}).
+\item Копия строки в {\ttfamily lower(string s)} и в {\ttfamily line.substr(1)} "--- лишние аллокации.
+\end{enumerate}
+
+Утечек памяти и выходов за границы ни {\ttfamily memcheck}, ни {\ttfamily dmalloc}, ни
+{\ttfamily AddressSanitizer} в старой версии не нашли.
+\pagebreak

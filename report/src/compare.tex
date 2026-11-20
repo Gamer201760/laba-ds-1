@@ -1,0 +1,113 @@
+\section{Сравнение с предыдущей версией}
+
+\subsection{Время и память}
+Лучшее время из 5 запусков, пиковый RSS по {\ttfamily /usr/bin/time}:
+
+\begin{longtable}{|l|r|r|r|r|r|}
+\hline
+\rowcolor{lightgray}
+Тест & \multicolumn{2}{c|}{Старая} & \multicolumn{2}{c|}{Новая} & Ускорение\\
+\rowcolor{lightgray}
+ & время, с & память, МБ & время, с & память, МБ & \\
+\hline
+{\ttfamily mix\_100000}      & 0.071 & 6.1  & 0.042 & 4.9  & 1.7\\
+{\ttfamily mix\_1000000}     & 0.893 & 31.2 & 0.537 & 19.2 & 1.7\\
+{\ttfamily insert\_1000000}  & 1.357 & 80.6 & 0.769 & 47.4 & 1.8\\
+{\ttfamily sorted\_1000000}  & 0.642 & 79.6 & 0.320 & 49.1 & 2.0\\
+{\ttfamily saveload\_200000} & 0.867 & 35.1 & 0.429 & 23.6 & 2.0\\
+\hline
+\end{longtable}
+
+Новая версия быстрее в 1.7--2 раза и тратит на 33--41\% меньше памяти на больших тестах.
+Файл словаря тоже стал немного меньше (3.7 МБ против 3.8 МБ на $2\cdot10^5$ слов), так как длина
+пишется одним байтом вместо двух.
+
+\subsection{gprof}
+\begin{alltt}
+\$ gprof -b -p new/bpg gmon.out           # mix_1000000
+  \%   cumulative   self              self     total
+ time   seconds   seconds    calls  ns/call  ns/call  name
+ 27.79      0.10     0.10 10132604     9.87     9.87  balance(Node*)
+ 25.01      0.19     0.09   300389   299.73   299.73  find(Node*, char const*, int)
+ 22.23      0.27     0.08   499745   160.14   305.53  insert(Node*, char const*, ...)
+ 11.12      0.31     0.04  1000000    40.02    40.02  readWord(string const&, ...)
+  5.56      0.33     0.02   199866   100.11   207.56  erase(Node*, char const*, ...)
+\end{alltt}
+Вызовов {\ttfamily balance} стало 10.1 млн вместо 11.8 млн. Профиль теперь покрывает 0.36~с из
+0.54~с работы: основная доля времени "--- сам код словаря, а не стандартная библиотека.
+
+На {\ttfamily saveload\_200000} один {\ttfamily Load} занимает 3.0~мс вместо 22.9~мс, то есть в 7.6 раза
+быстрее, а {\ttfamily balance} при загрузке не вызывается вообще.
+
+\subsection{callgrind}
+\begin{longtable}{|l|r|r|}
+\hline
+\rowcolor{lightgray}
+{\ttfamily mix\_100000} & Старая & Новая\\
+\hline
+Всего инструкций & 489.4 млн & 236.1 млн\\
+{\ttfamily istringstream} + разбор числа & $\approx$ 210 млн & 0\\
+{\ttfamily readWord} + {\ttfamily readNum} & "--- & 48.2 млн\\
+\hline
+\end{longtable}
+
+\subsection{Куча: memcheck, dmalloc, massif}
+\begin{longtable}{|l|r|r|}
+\hline
+\rowcolor{lightgray}
+{\ttfamily mix\_100000} & Старая & Новая\\
+\hline
+Число выделений & 213 834 & 46 697\\
+Всего выделено & 8.11 МБ & 1.93 МБ\\
+Максимум одновременно (dmalloc) & 2.54 МБ & 1.41 МБ\\
+Утечки & 0 & 0\\
+\hline
+\rowcolor{lightgray}
+{\ttfamily saveload\_200000} (massif) & Старая & Новая\\
+\hline
+Пик кучи & 29.1 МБ & 20.1 МБ\\
+Полезные данные в пике & 26.0 МБ & 15.7 МБ\\
+\hline
+\end{longtable}
+
+Число выделений почти равно числу добавленных слов, как и должно быть: одна аллокация на узел.
+
+\begin{alltt}
+    MB                                                     (новая версия)
+20.06^                    #
+     |                    #     :    :     :    :     :     :    ::    :     @
+     |                   :#   :::    @    ::   ::    ::    ::   @::   @:    :@
+     |                  ::#   :::   :@   :::   ::   :::   @::  :@::  :@:  :::@
+     |               ::@::#:::::@@@::@::::::@@::::::::::::@:::::@:::::@::::::@
+     |          ::::@: @::#: :::@  ::@: ::::@ :::: ::::: :@::: :@:: ::@:: :::@
+     | :::::::::::::@: @::#: :::@  ::@: ::::@ :::: ::::: :@::: :@:: ::@:: :::@
+   0 +----------------------------------------------------------------------->Gi
+     0                                                                   2.525
+\end{alltt}
+Ось времени у {\ttfamily massif} "--- выполненные инструкции: 2.5 млрд вместо 5.9 млрд.
+
+\subsection{Обработка системных ошибок}
+Нехватка места на диске ({\ttfamily ulimit -f 1000}, Save $10^5$ слов поверх файла в 25 байт):
+\begin{longtable}{|l|l|l|}
+\hline
+\rowcolor{lightgray}
+ & Вывод & Файл после\\
+\hline
+Старая & {\ttfamily ERROR: File too large} & 1 024 000 байт мусора\\
+Новая & {\ttfamily ERROR: File too large} & прежние 25 байт\\
+\hline
+\end{longtable}
+
+Нехватка памяти ({\ttfamily ulimit -v 30000}, тест {\ttfamily insert\_1000000}):
+\begin{longtable}{|l|r|r|r|}
+\hline
+\rowcolor{lightgray}
+ & {\ttfamily OK} & {\ttfamily Exist} & {\ttfamily ERROR: Not enough memory}\\
+\hline
+Старая & 265 526 & 126 198 & 608 276\\
+Новая & 464 394 & 132 970 & 402 636\\
+\hline
+\end{longtable}
+Обе версии не падают, а выводят ошибку и продолжают работу. Новая в тех же 30 МБ помещает
+на 75\% больше слов.
+\pagebreak

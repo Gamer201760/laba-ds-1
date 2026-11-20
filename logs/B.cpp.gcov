@@ -1,0 +1,409 @@
+        -:    0:Source:B.cpp
+        -:    0:Graph:./bcov-B.gcno
+        -:    0:Data:./bcov-B.gcda
+        -:    0:Runs:11
+        -:    1:#include <cerrno>
+        -:    2:#include <cstddef>
+        -:    3:#include <cstdint>
+        -:    4:#include <cstdio>
+        -:    5:#include <cstdlib>
+        -:    6:#include <cstring>
+        -:    7:#include <iostream>
+        -:    8:#include <new>
+        -:    9:#include <string>
+        -:   10:#include <vector>
+        -:   11:
+        -:   12:#ifdef DMALLOC
+        -:   13:#include "dmalloc.h"
+        -:   14:#endif
+        -:   15:
+        -:   16:using namespace std;
+        -:   17:
+        -:   18:const int MAXLEN = 256;
+        -:   19:
+        -:   20:struct Node {
+        -:   21:	Node *l, *r;
+        -:   22:	uint64_t val;
+        -:   23:	signed char h;
+        -:   24:	unsigned char len;
+        -:   25:	char key[1];
+        -:   26:};
+        -:   27:
+  9884699:   28:int keyLen(Node *v) {
+  9884699:   29:	return v->len + 1;
+        -:   30:}
+        -:   31:
+  2006841:   32:Node *newNode(const char *key, int len, uint64_t val) {
+  2006841:   33:	Node *nd = (Node *)malloc(offsetof(Node, key) + len);
+  2006841:   34:	if (!nd)
+    #####:   35:		throw bad_alloc();
+  2006841:   36:	nd->l = nd->r = nullptr;
+  2006841:   37:	nd->val = val;
+  2006841:   38:	nd->h = 1;
+  2006841:   39:	nd->len = len - 1;
+  2006841:   40:	memcpy(nd->key, key, len);
+  2006841:   41:	return nd;
+        -:   42:}
+        -:   43:
+  6320795:   44:int cmp(const char *key, int len, Node *v) {
+  6320795:   45:	int vl = keyLen(v);
+  6320795:   46:	int c = memcmp(key, v->key, len < vl ? len : vl);
+  6320795:   47:	if (c != 0)
+  5947736:   48:		return c;
+   373059:   49:	return len - vl;
+        -:   50:}
+        -:   51:
+ 19361956:   52:int height(Node *v) {
+ 19361956:   53:	return v ? v->h : 0;
+        -:   54:}
+        -:   55:
+  5838223:   56:void fix(Node *v) {
+  5838223:   57:	int a = height(v->l), b = height(v->r);
+  5838223:   58:	v->h = (a > b ? a : b) + 1;
+  5838223:   59:}
+        -:   60:
+    79745:   61:Node *rotRight(Node *v) {
+    79745:   62:	Node *u = v->l;
+    79745:   63:	v->l = u->r;
+    79745:   64:	u->r = v;
+    79745:   65:	fix(v);
+    79745:   66:	fix(u);
+    79745:   67:	return u;
+        -:   68:}
+        -:   69:
+    80681:   70:Node *rotLeft(Node *v) {
+    80681:   71:	Node *u = v->r;
+    80681:   72:	v->r = u->l;
+    80681:   73:	u->l = v;
+    80681:   74:	fix(v);
+    80681:   75:	fix(u);
+    80681:   76:	return u;
+        -:   77:}
+        -:   78:
+  3735420:   79:Node *balance(Node *v) {
+  3735420:   80:	fix(v);
+  3735420:   81:	int d = height(v->l) - height(v->r);
+  3735420:   82:	if (d == 2) {
+    53185:   83:		if (height(v->l->l) < height(v->l->r))
+    26531:   84:			v->l = rotLeft(v->l);
+    53185:   85:		return rotRight(v);
+        -:   86:	}
+  3682235:   87:	if (d == -2) {
+    54150:   88:		if (height(v->r->r) < height(v->r->l))
+    26560:   89:			v->r = rotRight(v->r);
+    54150:   90:		return rotLeft(v);
+        -:   91:	}
+  3628085:   92:	return v;
+        -:   93:}
+        -:   94:
+  4104750:   95:Node *insert(Node *v, const char *key, int len, uint64_t val, bool &added) {
+  4104750:   96:	if (!v) {
+   224889:   97:		added = true;
+   224889:   98:		return newNode(key, len, val);
+        -:   99:	}
+  3879861:  100:	int c = cmp(key, len, v);
+  3879861:  101:	if (c == 0) {
+    25028:  102:		added = false;
+    25028:  103:		return v;
+        -:  104:	}
+  3854833:  105:	if (c < 0)
+  1929897:  106:		v->l = insert(v->l, key, len, val, added);
+        -:  107:	else
+  1924936:  108:		v->r = insert(v->r, key, len, val, added);
+  3854833:  109:	if (!added)
+   303731:  110:		return v;
+  3551102:  111:	return balance(v);
+        -:  112:}
+        -:  113:
+    13826:  114:Node *removeMin(Node *v, Node *&mn) {
+    13826:  115:	if (!v->l) {
+     7080:  116:		mn = v;
+     7080:  117:		return v->r;
+        -:  118:	}
+     6746:  119:	v->l = removeMin(v->l, mn);
+     6746:  120:	return balance(v);
+        -:  121:}
+        -:  122:
+   269113:  123:Node *erase(Node *v, const char *key, int len, bool &removed) {
+   269113:  124:	if (!v) {
+     5698:  125:		removed = false;
+     5698:  126:		return nullptr;
+        -:  127:	}
+   263415:  128:	int c = cmp(key, len, v);
+   263415:  129:	if (c < 0) {
+   121216:  130:		v->l = erase(v->l, key, len, removed);
+   142199:  131:	} else if (c > 0) {
+   127876:  132:		v->r = erase(v->r, key, len, removed);
+        -:  133:	} else {
+    14323:  134:		removed = true;
+    14323:  135:		Node *l = v->l, *r = v->r;
+    14323:  136:		free(v);
+    14323:  137:		if (!r)
+     7243:  138:			return l;
+        -:  139:		Node *mn;
+     7080:  140:		r = removeMin(r, mn);
+     7080:  141:		mn->l = l;
+     7080:  142:		mn->r = r;
+     7080:  143:		return balance(mn);
+        -:  144:	}
+   249092:  145:	if (!removed)
+    78600:  146:		return v;
+   170492:  147:	return balance(v);
+        -:  148:}
+        -:  149:
+    30074:  150:Node *find(Node *v, const char *key, int len) {
+   404125:  151:	while (v) {
+   395578:  152:		int c = cmp(key, len, v);
+   395578:  153:		if (c == 0)
+    21527:  154:			return v;
+   374051:  155:		v = c < 0 ? v->l : v->r;
+        -:  156:	}
+     8547:  157:	return nullptr;
+        -:  158:}
+        -:  159:
+  3985062:  160:void clear(Node *v) {
+  3985062:  161:	if (!v)
+  1992545:  162:		return;
+  1992517:  163:	clear(v->l);
+  1992517:  164:	clear(v->r);
+  1992517:  165:	free(v);
+        -:  166:}
+        -:  167:
+        -:  168:const char MAGIC[4] = {'A', 'V', 'L', '2'};
+        -:  169:
+  3563917:  170:uint64_t countNodes(Node *v) {
+  3563917:  171:	return v ? countNodes(v->l) + countNodes(v->r) + 1 : 0;
+        -:  172:}
+        -:  173:
+  3563917:  174:bool saveNodes(Node *v, FILE *f) {
+  3563917:  175:	if (!v)
+  1781965:  176:		return true;
+  1781952:  177:	if (!saveNodes(v->l, f))
+    #####:  178:		return false;
+  1781952:  179:	if (fwrite(&v->len, 1, 1, f) != 1)
+    #####:  180:		return false;
+  1781952:  181:	if (fwrite(v->key, 1, keyLen(v), f) != (size_t)keyLen(v))
+    #####:  182:		return false;
+  1781952:  183:	if (fwrite(&v->val, sizeof(v->val), 1, f) != 1)
+    #####:  184:		return false;
+  1781952:  185:	return saveNodes(v->r, f);
+        -:  186:}
+        -:  187:
+        1:  188:string sysError(int e) {
+        2:  189:	return string("ERROR: ") + strerror(e);
+        -:  190:}
+        -:  191:
+       14:  192:string save(Node *root, const string &path) {
+       14:  193:	string tmp = path + ".tmp";
+       14:  194:	FILE *f = fopen(tmp.c_str(), "wb");
+       14:  195:	if (!f)
+        1:  196:		return sysError(errno);
+       13:  197:	uint64_t n = countNodes(root);
+       13:  198:	bool ok = fwrite(MAGIC, 1, 4, f) == 4 &&
+      13*:  199:			  fwrite(&n, sizeof(n), 1, f) == 1 && saveNodes(root, f);
+       13:  200:	int e = errno;
+      13*:  201:	if (fclose(f) != 0 && ok) {
+    #####:  202:		ok = false;
+    #####:  203:		e = errno;
+        -:  204:	}
+      13*:  205:	if (ok && rename(tmp.c_str(), path.c_str()) != 0) {
+    #####:  206:		ok = false;
+    #####:  207:		e = errno;
+        -:  208:	}
+       13:  209:	if (!ok) {
+    #####:  210:		remove(tmp.c_str());
+    #####:  211:		return sysError(e);
+        -:  212:	}
+       13:  213:	return "OK";
+       14:  214:}
+        -:  215:
+  3563916:  216:Node *link(vector<Node *> &a, int lo, int hi) {
+  3563916:  217:	if (lo >= hi)
+  1781965:  218:		return nullptr;
+  1781951:  219:	int m = (lo + hi) / 2;
+  1781951:  220:	Node *v = a[m];
+  1781951:  221:	v->l = link(a, lo, m);
+  1781951:  222:	v->r = link(a, m + 1, hi);
+  1781951:  223:	fix(v);
+  1781951:  224:	return v;
+        -:  225:}
+        -:  226:
+       21:  227:string load(Node *&root, const string &path) {
+       21:  228:	FILE *f = fopen(path.c_str(), "rb");
+       21:  229:	if (!f) {
+        1:  230:		if (errno == ENOENT) {
+        1:  231:			clear(root);
+        1:  232:			root = nullptr;
+        1:  233:			return "OK";
+        -:  234:		}
+    #####:  235:		return sysError(errno);
+        -:  236:	}
+        -:  237:
+        -:  238:	char hdr[4];
+       20:  239:	size_t got = fread(hdr, 1, 4, f);
+       20:  240:	if (got == 0 && feof(f)) {
+        2:  241:		fclose(f);
+        2:  242:		clear(root);
+        2:  243:		root = nullptr;
+        2:  244:		return "OK";
+        -:  245:	}
+        -:  246:
+       18:  247:	vector<Node *> a;
+       18:  248:	string res = "OK";
+        -:  249:	uint64_t n;
+       35:  250:	if (got != 4 || memcmp(hdr, MAGIC, 4) != 0 ||
+       17:  251:		fread(&n, sizeof(n), 1, f) != 1) {
+        1:  252:		res = "ERROR: Wrong file format";
+        -:  253:	} else {
+        -:  254:		try {
+        -:  255:			char buf[MAXLEN];
+  1781969:  256:			for (uint64_t i = 0; i < n; i++) {
+        -:  257:				unsigned char l;
+        -:  258:				uint64_t val;
+  3563910:  259:				if (fread(&l, 1, 1, f) != 1 || fread(buf, 1, l + 1, f) != l + 1u ||
+  1781955:  260:					fread(&val, sizeof(val), 1, f) != 1) {
+        1:  261:					res = "ERROR: Wrong file format";
+        3:  262:					break;
+        -:  263:				}
+  1781954:  264:				int len = l + 1;
+  1781954:  265:				bool good = true;
+ 22408888:  266:				for (int j = 0; j < len; j++)
+ 20626934:  267:					if (buf[j] < 'a' || buf[j] > 'z')
+        1:  268:						good = false;
+  1781954:  269:				if (good && !a.empty() && cmp(buf, len, a.back()) <= 0)
+        1:  270:					good = false;
+  1781954:  271:				if (!good) {
+        2:  272:					res = "ERROR: Wrong file format";
+        2:  273:					break;
+        -:  274:				}
+  1781952:  275:				a.push_back(newNode(buf, len, val));
+        -:  276:			}
+       17:  277:			if (res == "OK") {
+        -:  278:				char c;
+       14:  279:				if (fread(&c, 1, 1, f) == 1)
+    #####:  280:					res = "ERROR: Wrong file format";
+        -:  281:			}
+    =====:  282:		} catch (bad_alloc &) {
+    =====:  283:			res = "ERROR: Not enough memory";
+    =====:  284:		}
+        -:  285:	}
+      18*:  286:	if (res == "OK" && ferror(f))
+    #####:  287:		res = sysError(errno);
+       18:  288:	fclose(f);
+        -:  289:
+       18:  290:	if (res != "OK") {
+        5:  291:		for (int i = 0; i < (int)a.size(); i++)
+        1:  292:			free(a[i]);
+        4:  293:		return res;
+        -:  294:	}
+       14:  295:	clear(root);
+       14:  296:	root = link(a, 0, a.size());
+       14:  297:	return res;
+       18:  298:}
+        -:  299:
+  1150076:  300:void skipSpaces(const string &s, size_t &i) {
+  1670009:  301:	while (i < s.size() && (s[i] == ' ' || s[i] == '\t'))
+   519933:  302:		i++;
+  1150076:  303:}
+        -:  304:
+   300017:  305:bool readWord(const string &s, size_t &i, char *buf, int &len) {
+   300017:  306:	skipSpaces(s, i);
+   300017:  307:	len = 0;
+  3449461:  308:	while (i < s.size() && s[i] != ' ' && s[i] != '\t') {
+  3149446:  309:		char c = s[i];
+  3149446:  310:		if (c >= 'A' && c <= 'Z')
+  1573967:  311:			c = c - 'A' + 'a';
+  3149446:  312:		if (c < 'a' || c > 'z')
+        2:  313:			return false;
+  3149444:  314:		if (len <= MAXLEN)
+  3149401:  315:			buf[len++] = c;
+  3149444:  316:		i++;
+        -:  317:	}
+   300015:  318:	return len > 0;
+        -:  319:}
+        -:  320:
+   249919:  321:bool readNum(const string &s, size_t &i, uint64_t &v) {
+   249919:  322:	skipSpaces(s, i);
+   249919:  323:	v = 0;
+   249919:  324:	size_t st = i;
+  5097502:  325:	while (i < s.size() && s[i] >= '0' && s[i] <= '9') {
+  4847584:  326:		uint64_t d = s[i] - '0';
+  4847584:  327:		if (v > (UINT64_MAX - d) / 10)
+        1:  328:			return false;
+  4847583:  329:		v = v * 10 + d;
+  4847583:  330:		i++;
+        -:  331:	}
+   249918:  332:	return i > st;
+        -:  333:}
+        -:  334:
+   600066:  335:bool atEnd(const string &s, size_t &i) {
+   600066:  336:	skipSpaces(s, i);
+   600066:  337:	return i == s.size();
+        -:  338:}
+        -:  339:
+       11:  340:int main() {
+       11:  341:	ios::sync_with_stdio(false);
+       11:  342:	cin.tie(nullptr);
+       11:  343:	Node *root = nullptr;
+       11:  344:	string line;
+        -:  345:	char w[MAXLEN + 1];
+        -:  346:	int len;
+   300065:  347:	while (getline(cin, line)) {
+  300054*:  348:		if (!line.empty() && line.back() == '\r')
+    #####:  349:			line.pop_back();
+   300054:  350:		size_t i = 0;
+  300054*:  351:		if (atEnd(line, i))
+       5*:  352:			continue;
+        -:  353:		try {
+   300054:  354:			if (line[i] == '+') {
+   249921:  355:				i++;
+        -:  356:				uint64_t v;
+   499841:  357:				if (!readWord(line, i, w, len) || len > MAXLEN ||
+   499841:  358:					!readNum(line, i, v) || !atEnd(line, i)) {
+        4:  359:					cout << "ERROR: Invalid command\n";
+        4:  360:					continue;
+        -:  361:				}
+        -:  362:				bool added;
+   249917:  363:				root = insert(root, w, len, v, added);
+   249917:  364:				cout << (added ? "OK" : "Exist") << '\n';
+    50133:  365:			} else if (line[i] == '-') {
+    20021:  366:				i++;
+   20021*:  367:				if (!readWord(line, i, w, len) || !atEnd(line, i)) {
+    #####:  368:					cout << "ERROR: Invalid command\n";
+    #####:  369:					continue;
+        -:  370:				}
+        -:  371:				bool removed;
+    20021:  372:				root = erase(root, w, len, removed);
+    20021:  373:				cout << (removed ? "OK" : "NoSuchWord") << '\n';
+    30112:  374:			} else if (line[i] == '!') {
+       37:  375:				i++;
+       37:  376:				skipSpaces(line, i);
+       37:  377:				size_t st = i;
+      184:  378:				while (i < line.size() && line[i] != ' ' && line[i] != '\t')
+      147:  379:					i++;
+       37:  380:				string cmd = line.substr(st, i - st);
+       37:  381:				skipSpaces(line, i);
+       37:  382:				string path = line.substr(i);
+       37:  383:				if (path.empty() || (cmd != "Save" && cmd != "Load"))
+        2:  384:					cout << "ERROR: Invalid command\n";
+       35:  385:				else if (cmd == "Save")
+       14:  386:					cout << save(root, path) << '\n';
+        -:  387:				else
+       21:  388:					cout << load(root, path) << '\n';
+       37:  389:			} else {
+    30075:  390:				if (!readWord(line, i, w, len) || !atEnd(line, i)) {
+        1:  391:					cout << "ERROR: Invalid command\n";
+        1:  392:					continue;
+        -:  393:				}
+    30074:  394:				Node *v = find(root, w, len);
+    30074:  395:				if (v)
+    21527:  396:					cout << "OK: " << v->val << '\n';
+        -:  397:				else
+     8547:  398:					cout << "NoSuchWord\n";
+        -:  399:			}
+    =====:  400:		} catch (bad_alloc &) {
+    =====:  401:			cout << "ERROR: Not enough memory\n";
+    =====:  402:		}
+        -:  403:	}
+       11:  404:	clear(root);
+       11:  405:}

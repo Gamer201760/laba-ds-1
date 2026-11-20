@@ -1,0 +1,13 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ns/call  ns/call  name    
+ 25.73      0.09     0.09 11818239     7.62     7.62  balance(Node*)
+ 25.73      0.18     0.09   300389   299.74   299.74  find(Node*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+ 20.01      0.25     0.07   499745   140.13   262.48  insert(Node*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long, bool&)
+ 11.43      0.29     0.04  1000000    40.02    40.02  lower(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)
+ 11.43      0.33     0.04   199866   200.22   318.13  erase(Node*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, bool&)
+  2.86      0.34     0.01   699612    14.30    14.30  frame_dummy
+  2.86      0.35     0.01                             main
+  0.00      0.35     0.00    16152     0.00     3.79  removeMin(Node*, Node*&)

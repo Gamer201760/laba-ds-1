@@ -1,0 +1,14 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 32.77      0.10     0.10 32841219     0.00     0.00  balance(Node*)
+ 24.15      0.17     0.07  1981950     0.00     0.00  insert(Node*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long, bool&)
+ 17.25      0.22     0.05       10     5.00    19.84  load(Node*&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+ 10.35      0.25     0.03       10     3.00     3.00  saveNodes(Node*, _IO_FILE*)
+ 10.35      0.28     0.03      180     0.17     0.17  countNodes(Node*)
+  3.45      0.29     0.01   200000     0.00     0.00  lower(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)
+  1.72      0.29     0.01                             rotLeft(Node*)
+  0.00      0.29     0.00  1981991     0.00     0.00  frame_dummy
+  0.00      0.29     0.00       10     0.00     6.00  save(Node*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)

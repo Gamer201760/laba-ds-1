@@ -1,0 +1,36 @@
+1795155385: 427661: Dmalloc version '5.5.2' from 'http://dmalloc.com/'
+1795155385: 427661: flags = 0x4f4e503, logfile 'dm.log'
+1795155385: 427661: interval = 100, addr = 0, seen # = 0, limit = 0
+1795155385: 427661: threads enabled, lock-on = 0, lock-init = 2
+1795155385: 427661: starting time = 1795155377
+1795155385: 427661: process pid = 2494959
+1795155385: 427661: Dumping Chunk Statistics:
+1795155385: 427661: basic-block 4096 bytes, alignment 8 bytes
+1795155385: 427661: heap address range: 0x7f3c65a36000 to 0x7f3c66787000, 13963264 bytes
+1795155385: 427661:     user blocks: 1206 blocks, 4914176 bytes (63%)
+1795155385: 427661:    admin blocks: 676 blocks, 2768896 bytes (35%)
+1795155385: 427661:    total blocks: 1882 blocks, 7708672 bytes
+1795155385: 427661: heap checked 4277
+1795155385: 427661: alloc calls: malloc 7, calloc 0, realloc 0, free 0
+1795155385: 427661: alloc calls: recalloc 0, memalign 0, posix_memalign 0, valloc 0
+1795155385: 427661: alloc calls: new 213827, delete 213827
+1795155385: 427661:   current memory in use: 195584 bytes (7 pnts)
+1795155385: 427661:  total memory allocated: 8113110 bytes (213834 pnts)
+1795155385: 427661:  max in use at one time: 2542105 bytes (41245 pnts)
+1795155385: 427661: max alloced with 1 call: 72704 bytes
+1795155385: 427661: max unused memory space: 2389863 bytes (48%)
+1795155385: 427661: top 10 allocations:
+1795155385: 427661:  total-size  count in-use-size  count  source
+1795155385: 427661:     7764867 209738     7764867 209738  Other pointers
+1795155385: 427661:     7764867 209738     7764867 209738  Total of 0
+1795155385: 427661: Dumping Not-Freed Pointers Changed Since Start:
+1795155385: 427661:  not freed: '0x7f3c6662f008|s1' (32768 bytes) from 'unknown'
+1795155385: 427661:  not freed: '0x7f3c66638008|s1' (32768 bytes) from 'unknown'
+1795155385: 427661:  not freed: '0x7f3c66641008|s1' (32768 bytes) from 'unknown'
+1795155385: 427661:  not freed: '0x7f3c6664a008|s1' (72704 bytes) from 'unknown'
+1795155385: 427661:  not freed: '0x7f3c6677c008|s1' (8192 bytes) from 'unknown'
+1795155385: 427661:  not freed: '0x7f3c6677f008|s1' (8192 bytes) from 'unknown'
+1795155385: 427661:  not freed: '0x7f3c66783008|s1' (8192 bytes) from 'unknown'
+1795155385: 427661:  total-size  count  source
+1795155385: 427661:           0      0  Total of 0
+1795155385: 427661: ending time = 1795155385, elapsed since start = 0:00:08

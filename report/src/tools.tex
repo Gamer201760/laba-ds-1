@@ -1,0 +1,48 @@
+\section{Используемые средства}
+
+\begin{itemize}
+\item {\ttfamily gprof} (GNU binutils 2.40) "--- профилировщик. Программа собирается с ключом
+{\ttfamily -pg}, после запуска появляется файл {\ttfamily gmon.out}, по которому {\ttfamily gprof -b -p}
+строит плоский профиль: сколько времени заняла каждая функция и сколько раз она вызвалась.
+Минус: учитывается только код самой программы, время внутри {\ttfamily libstdc++} в профиль не попадает.
+\item {\ttfamily dmalloc} 5.5.2 "--- отладочная библиотека выделения памяти. Для C++ подключается
+{\ttfamily -ldmalloccxx}, она подменяет {\ttfamily malloc}, {\ttfamily free}, {\ttfamily new},
+{\ttfamily delete}. Режим задаётся переменной {\ttfamily DMALLOC\_OPTIONS}, которую выдаёт
+{\ttfamily dmalloc -b -l logfile -i 100 high}. Уровень {\ttfamily high} включает проверку заборов
+(fence-post) вокруг блоков, проверку всей кучи каждые {\ttfamily -i} операций и учёт неосвобождённых
+указателей.
+\item {\ttfamily valgrind} 3.19 "--- три инструмента:
+  \begin{itemize}
+  \item {\ttfamily memcheck} "--- утечки и обращения к неинициализированной памяти;
+  \item {\ttfamily callgrind} "--- число выполненных инструкций, в том числе внутри библиотек
+  (закрывает слабое место {\ttfamily gprof});
+  \item {\ttfamily massif} "--- график размера кучи во времени.
+  \end{itemize}
+\item {\ttfamily gcov} "--- покрытие кода тестами (сборка с {\ttfamily --coverage}).
+\item {\ttfamily /usr/bin/time -f '\%e \%M'} "--- время работы и пиковый RSS процесса.
+\item {\ttfamily ulimit -v}, {\ttfamily ulimit -f} "--- искусственная нехватка памяти и места на диске
+для проверки обработки системных ошибок.
+\item Генератор тестов {\ttfamily tests/gen.py} и скрипт замеров {\ttfamily tests/bench.py}
+(лучшее время из 5 запусков).
+\end{itemize}
+
+Компилятор: {\ttfamily g++ 12.2}, флаги {\ttfamily -O2}. ОС: Debian 12, Linux 6.1, x86-64.
+
+Тесты:
+\begin{longtable}{|l|p{11cm}|}
+\hline
+\rowcolor{lightgray}
+Файл & Содержимое\\
+\hline
+{\ttfamily mix\_100000} & $10^5$ команд: 50\% вставок, 30\% поисков, 20\% удалений, слова 1--20 букв\\
+\hline
+{\ttfamily mix\_1000000} & то же, $10^6$ команд\\
+\hline
+{\ttfamily insert\_1000000} & $10^6$ вставок случайных слов\\
+\hline
+{\ttfamily sorted\_1000000} & $10^6$ вставок в порядке возрастания ({\ttfamily aaaaa}, {\ttfamily aaaab}, \ldots) "--- худший случай для обычного BST\\
+\hline
+{\ttfamily saveload\_200000} & $2\cdot10^5$ вставок, затем 10 пар {\ttfamily Save}/{\ttfamily Load}\\
+\hline
+\end{longtable}
+\pagebreak

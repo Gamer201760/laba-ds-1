@@ -1,0 +1,6 @@
+==2494880== HEAP SUMMARY:
+==2494880==     in use at exit: 122,880 bytes in 6 blocks
+==2494880==   total heap usage: 213,834 allocs, 213,828 frees, 8,113,110 bytes allocated
+==2494880==    definitely lost: 0 bytes in 0 blocks
+==2494880==    still reachable: 122,880 bytes in 6 blocks
+==2494880== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
